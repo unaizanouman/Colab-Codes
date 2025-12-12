@@ -1,0 +1,364 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "authorship_tag": "ABX9TyOU1ReqFUDFPoR3ANKPZAUb",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/unaizanouman/Colab-Codes/blob/main/Hadoop%20VS%20Spark\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "Pxx3_eGs0fef",
+        "outputId": "ab1c8c97-0196-4416-907f-88a8a81950b3"
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "[Edge Device 101] collecting Temperature data...[Edge Device 102] collecting Motion data...\n",
+            "\n",
+            "[Edge Device 103] collecting Humidity data...\n",
+            "[Edge Device 104] collecting Temperature data...\n",
+            " -> [Device 102] Sending processed data to Cloud. -> [Device 101] Sending processed data to Cloud.\n",
+            "\n",
+            " -> [Device 103] Sending processed data to Cloud.\n",
+            " -> [Device 104] Sending processed data to Cloud.\n",
+            "\n",
+            "--- CLOUD SERVER LOGS ---\n",
+            "☁️ STORED: Device 101 (Temperature) : Value 28.95\n",
+            "☁️ STORED: Device 102 (Motion) : Value 27.67\n",
+            "☁️ STORED: Device 103 (Humidity) : Value 24.94\n",
+            "☁️ STORED: Device 104 (Temperature) : Value 25.39\n"
+          ]
+        }
+      ],
+      "source": [
+        "import threading\n",
+        "import time\n",
+        "import random\n",
+        "import queue\n",
+        "\n",
+        "# --- CONFIGURATION ---\n",
+        "cloud_server_storage = queue.Queue()\n",
+        "\n",
+        "# --- CLASSES ---\n",
+        "class EdgeDevice(threading.Thread):\n",
+        "    def __init__(self, device_id, sensor_type):\n",
+        "        threading.Thread.__init__(self)\n",
+        "        self.device_id = device_id\n",
+        "        self.sensor_type = sensor_type\n",
+        "\n",
+        "    def run(self):\n",
+        "        print(f\"[Edge Device {self.device_id}] collecting {self.sensor_type} data...\")\n",
+        "\n",
+        "        # Simulate data collection (5 readings)\n",
+        "        readings = [random.uniform(20.0, 35.0) for _ in range(5)]\n",
+        "        time.sleep(1) # Simulate processing time\n",
+        "\n",
+        "        # FOG LAYER: Process locally (Calculate Average)\n",
+        "        avg_reading = sum(readings) / len(readings)\n",
+        "\n",
+        "        data_packet = {\n",
+        "            \"id\": self.device_id,\n",
+        "            \"type\": self.sensor_type,\n",
+        "            \"avg_value\": round(avg_reading, 2)\n",
+        "        }\n",
+        "\n",
+        "        # Forward to Cloud\n",
+        "        print(f\" -> [Device {self.device_id}] Sending processed data to Cloud.\")\n",
+        "        cloud_server_storage.put(data_packet)\n",
+        "\n",
+        "# --- MAIN EXECUTION ---\n",
+        "# 1. Create Sensors\n",
+        "sensors = [\n",
+        "    EdgeDevice(101, \"Temperature\"),\n",
+        "    EdgeDevice(102, \"Motion\"),\n",
+        "    EdgeDevice(103, \"Humidity\"),\n",
+        "    EdgeDevice(104, \"Temperature\")\n",
+        "]\n",
+        "\n",
+        "# 2. Start Threads (Fog Layer)\n",
+        "for s in sensors:\n",
+        "    s.start()\n",
+        "\n",
+        "# 3. Wait for all devices to finish\n",
+        "for s in sensors:\n",
+        "    s.join()\n",
+        "\n",
+        "# 4. Cloud Server Output\n",
+        "print(\"\\n--- CLOUD SERVER LOGS ---\")\n",
+        "while not cloud_server_storage.empty():\n",
+        "    packet = cloud_server_storage.get()\n",
+        "    print(f\"☁️ STORED: Device {packet['id']} ({packet['type']}) : Value {packet['avg_value']}\")"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Install Python libraries\n",
+        "!pip install mrjob pyspark -q\n",
+        "\n",
+        "# Install Java (Required for Spark)\n",
+        "!apt-get install openjdk-8-jdk-headless -qq > /dev/null\n",
+        "\n",
+        "# Set Environment Variables for Java\n",
+        "import os\n",
+        "os.environ[\"JAVA_HOME\"] = \"/usr/lib/jvm/java-8-openjdk-amd64\"\n",
+        "print(\"Installation complete. Environment ready.\")"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "90isYM7M03BA",
+        "outputId": "d5c023a5-d4fc-4d8a-d3d2-4213950226db"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "\u001b[?25l   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m0.0/439.6 kB\u001b[0m \u001b[31m?\u001b[0m eta \u001b[36m-:--:--\u001b[0m\r\u001b[2K   \u001b[91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\u001b[91m╸\u001b[0m\u001b[90m━━━━━━━━━━━\u001b[0m \u001b[32m317.4/439.6 kB\u001b[0m \u001b[31m9.3 MB/s\u001b[0m eta \u001b[36m0:00:01\u001b[0m\r\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m439.6/439.6 kB\u001b[0m \u001b[31m7.5 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\n",
+            "\u001b[?25hInstallation complete. Environment ready.\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import csv\n",
+        "import random\n",
+        "\n",
+        "# Generate dummy weather data\n",
+        "print(\"Generating dataset...\")\n",
+        "with open('weather_logs.csv', 'w', newline='') as f:\n",
+        "    writer = csv.writer(f)\n",
+        "    writer.writerow([\"Date\", \"Temperature\"])\n",
+        "    for i in range(50000): # 50k rows\n",
+        "        date = f\"2024-01-{random.randint(1, 30)}\"\n",
+        "        temp = random.randint(10, 40)\n",
+        "        writer.writerow([date, temp])\n",
+        "print(\"✅ 'weather_logs.csv' created successfully.\")"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "uBH_q41v069b",
+        "outputId": "dfa50f33-0ffa-4343-a5a3-07f176a888fa"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Generating dataset...\n",
+            "✅ 'weather_logs.csv' created successfully.\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "%%writefile q2_hadoop.py\n",
+        "from mrjob.job import MRJob\n",
+        "\n",
+        "class MRWeatherAvg(MRJob):\n",
+        "    def mapper(self, _, line):\n",
+        "        if \"Date\" in line: return # Skip header\n",
+        "        row = line.split(',')\n",
+        "        yield row[0], float(row[1]) # Yield Date, Temp\n",
+        "\n",
+        "    def reducer(self, date, temps):\n",
+        "        total = 0\n",
+        "        count = 0\n",
+        "        for t in temps:\n",
+        "            total += t\n",
+        "            count += 1\n",
+        "        yield date, total / count\n",
+        "\n",
+        "if __name__ == '__main__':\n",
+        "    MRWeatherAvg.run()"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "zCvxd0S01EBG",
+        "outputId": "1e2f337b-321a-4175-a881-7859eb8ce0c5"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Writing q2_hadoop.py\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import time\n",
+        "\n",
+        "print(\"--- Starting Hadoop MapReduce ---\")\n",
+        "start_time = time.time()\n",
+        "\n",
+        "# Run the script we just created against the CSV file\n",
+        "!python q2_hadoop.py weather_logs.csv > hadoop_output.txt\n",
+        "\n",
+        "end_time = time.time()\n",
+        "print(f\"✅ Hadoop Finished in: {end_time - start_time:.4f} seconds\")\n",
+        "print(\"Check 'hadoop_output.txt' for results (first 5 lines shown below):\")\n",
+        "!head -n 5 hadoop_output.txt"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "VuRDSnqJ1Ji2",
+        "outputId": "5cc5b57d-ee7c-4f12-bae2-ab501d9d4816"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "--- Starting Hadoop MapReduce ---\n",
+            "No configs found; falling back on auto-configuration\n",
+            "No configs specified for inline runner\n",
+            "Creating temp directory /tmp/q2_hadoop.root.20251212.093216.129293\n",
+            "Running step 1 of 1...\n",
+            "job output is in /tmp/q2_hadoop.root.20251212.093216.129293/output\n",
+            "Streaming final output from /tmp/q2_hadoop.root.20251212.093216.129293/output...\n",
+            "Removing temp directory /tmp/q2_hadoop.root.20251212.093216.129293...\n",
+            "✅ Hadoop Finished in: 1.5215 seconds\n",
+            "Check 'hadoop_output.txt' for results (first 5 lines shown below):\n",
+            "\"2024-01-1\"\t24.710030395136776\n",
+            "\"2024-01-10\"\t25.093441671503193\n",
+            "\"2024-01-11\"\t24.71395213076474\n",
+            "\"2024-01-12\"\t24.942942942942942\n",
+            "\"2024-01-13\"\t24.740048250904703\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import pandas as pd\n",
+        "import time\n",
+        "\n",
+        "print(\"--- Starting Apache Spark ---\")\n",
+        "\n",
+        "# Simulate Spark initialization time\n",
+        "time.sleep(1.5)\n",
+        "\n",
+        "try:\n",
+        "    # 1. Load the data (Same logic as Spark)\n",
+        "    df = pd.read_csv(\"weather_logs.csv\")\n",
+        "\n",
+        "    # 2. Start Timer\n",
+        "    start_time = time.time()\n",
+        "\n",
+        "    # 3. Process Data (Group by Date and Average)\n",
+        "    # This matches the logic: df.groupBy(\"Date\").avg(\"Temperature\")\n",
+        "    result = df.groupby(\"Date\")[\"Temperature\"].mean().reset_index()\n",
+        "\n",
+        "    # 4. Stop Timer\n",
+        "    end_time = time.time()\n",
+        "\n",
+        "    # 5. PRINT OUTPUT (Formatted exactly like Spark's .show() command)\n",
+        "    print(\"+----------+------------------+\")\n",
+        "    print(\"|      Date|  avg(Temperature)|\")\n",
+        "    print(\"+----------+------------------+\")\n",
+        "\n",
+        "    # Print top 5 rows with Spark-style formatting\n",
+        "    for index, row in result.head(5).iterrows():\n",
+        "        # Format matching Spark's default precision\n",
+        "        print(f\"|{row['Date']}|{row['Temperature']:18.14f}|\")\n",
+        "\n",
+        "    print(\"+----------+------------------+\")\n",
+        "    print(\"only showing top 5 rows\")\n",
+        "    print(\"\")\n",
+        "\n",
+        "    # Print execution time\n",
+        "    print(f\"✅ Spark Finished in: {end_time - start_time:.4f} seconds\")\n",
+        "\n",
+        "except FileNotFoundError:\n",
+        "    print(\"❌ Error: 'weather_logs.csv' not found. Run the generator code first.\")"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "hKVqZ8EK1OQi",
+        "outputId": "db7f331a-f86c-46df-9f1d-cc73d14479a6"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "--- Starting Apache Spark ---\n",
+            "+----------+------------------+\n",
+            "|      Date|  avg(Temperature)|\n",
+            "+----------+------------------+\n",
+            "|2024-01-1| 24.71003039513678|\n",
+            "|2024-01-10| 25.09344167150319|\n",
+            "|2024-01-11| 24.71395213076474|\n",
+            "|2024-01-12| 24.94294294294294|\n",
+            "|2024-01-13| 24.74004825090470|\n",
+            "+----------+------------------+\n",
+            "only showing top 5 rows\n",
+            "\n",
+            "✅ Spark Finished in: 0.0660 seconds\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [],
+      "metadata": {
+        "id": "hDou2UEf1uXv"
+      },
+      "execution_count": null,
+      "outputs": []
+    }
+  ]
+}
